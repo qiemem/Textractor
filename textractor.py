@@ -1,4 +1,5 @@
 import fileinput
+from collections import defaultdict
 
 def make_tuples(tuple_size, sentences):
     """
@@ -17,7 +18,12 @@ def make_tuples(tuple_size, sentences):
         for i, w in enumerate(words[:-(tuple_size - 1)]):
             yield tuple(words[i:i+tuple_size])
 
+
 if __name__ == '__main__':
-    for t in make_tuples(3, fileinput.input()):
-        print(t)
+    vecs = defaultdict(lambda : [0]*100)
+    for w1, w2 in make_tuples(2, fileinput.input()):
+        vecs[w1][hash(w2) % 100] += 1
+        vecs[w2][hash(w1) % 100] += 1
+    for w, v in vecs.iteritems():
+        print(w + ' ' + ' '.join(map(str, v)))
 
