@@ -1,4 +1,5 @@
 import fileinput
+import argparse
 from collections import defaultdict
 
 def make_tuples(tuple_size, sentences):
@@ -20,10 +21,18 @@ def make_tuples(tuple_size, sentences):
 
 
 if __name__ == '__main__':
-    vecs = defaultdict(lambda : [0]*100)
-    for w1, w2 in make_tuples(2, fileinput.input()):
-        vecs[w1][hash(w2) % 100] += 1
-        vecs[w2][hash(w1) % 100] += 1
+    parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
+    parser.add_argument('-n', default=100, type=int, 
+            help='Length of feature vectors (default is 100)')
+    parser.add_argument('-f', default='-', type=str, metavar='filename',
+            help='File containing sentences to process (defaults to stdin)')
+
+    args = parser.parse_args()
+    vecs = defaultdict(lambda : [0]*args.n)
+    for w1, w2 in make_tuples(2, fileinput.input(args.f)):
+        vecs[w1][hash(w2) % args.n] += 1
+        vecs[w2][hash(w1) % args.n] += 1
+
     for w, v in vecs.iteritems():
         print(w + ' ' + ' '.join(map(str, v)))
 
