@@ -19,6 +19,26 @@ def make_tuples(tuple_size, sentences):
         for i, w in enumerate(words[:-(tuple_size - 1)]):
             yield tuple(words[i:i+tuple_size])
 
+def forward_prob(trans_probs, init_probs, emit_probs, sequence):
+    """
+    trans_probs = state X state matrix
+    init_probs = state vector
+    emit_probs = state X words
+    """
+    n = len(init_probs)
+    time_state_prob = [[0]*n for _ in sequence]
+    for i, prob in enumerate(init_probs):
+        time_state_prob[0][i] = prob * emit_probs[i][sequence[0]]
+
+    for i, observed in enumerate(sequence[1:]):
+        t = i + 1
+        for state in xrange(n):
+            obs_prob = emit_probs[state][sequence[t]]
+            trans_prob = sum(trans_probs[prev_state][state] * time_state_prob[t-1][prev_state] for prev_state in xrange(n) )
+            time_state_prob[t][state] = obs_prob * trans_prob
+    return time_state_prob
+        
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
