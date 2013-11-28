@@ -19,42 +19,81 @@ def make_tuples(tuple_size, sentences):
         for i, w in enumerate(words[:-(tuple_size - 1)]):
             yield tuple(words[i:i+tuple_size])
 
+def enum_range(seq, start=0, stop=None, step=1):
+    """
+    Like `enumerate`, but lets you specify start, stop, and step used in
+    iteration.
+    For instance:
+    >>> list(enum_range(['a', 'b', 'c'], -1, 0, -1))
+    [(2, 'c'), (1, 'b'), (0, 'c')]
+    """
+
+    if start < 0:
+        start = len(seq) + start
+    if stop == None:
+        stop = len(seq)
+    if stop < 0:
+        stop = len(seq) + stop
+
+    for i in xrange(start, stop, step):
+        yield i, seq[i]
+
 def forward_prob(trans_probs, init_probs, emit_probs, sequence):
     """
-    trans_probs = state X state matrix
-    init_probs = state vector
-    emit_probs = state X words
+    For each state at each time step, calculates the probability that the hmm
+    would produce the given sequence of observations up to that time step and
+    land in that state.
+    trans_probs - The transition probabilities between states as 
+        a list of lists. trans_prob[source state][dest state]
+    init_probs - The probabilities of beginning in any given state as vector
+        indexed by state.
+    emit_probs - The probabilities that each state will produce each 
+        observation as a list of lists (or list of dicts).
+        emit_probs[state][observation]
+    sequence - The sequence of observations over time. sequence[time] = obs
     """
     n = len(init_probs)
-    time_state_prob = [[0]*n for _ in sequence]
-    for i, prob in enumerate(init_probs):
-        time_state_prob[0][i] = prob * emit_probs[i][sequence[0]]
+    states = range(n)
 
-    for i, observed in enumerate(sequence[1:]):
-        t = i + 1
-        for state in xrange(n):
+    time_state_prob = [[0]*n for _ in sequence]
+    for state, prob in enumerate(init_probs):
+        time_state_prob[0][state] = prob * emit_probs[state][sequence[0]]
+
+    for t, observed in enum_range(sequence, 1):
+        for state in states:
             obs_prob = emit_probs[state][sequence[t]]
-            trans_prob = sum(trans_probs[prev_state][state] * time_state_prob[t-1][prev_state] for prev_state in xrange(n) )
+            trans_prob = sum(trans_probs[prev_state][state] 
+                    * time_state_prob[t-1][prev_state] 
+                    for prev_state in states)
             time_state_prob[t][state] = obs_prob * trans_prob
     return time_state_prob
 
 
 def backward_prob(trans_probs, emit_probs, sequence):
     """
-    trans_probs = state X state matrix
-    init_probs = state vector
-    emit_probs = state X words
+    For each state at each time step, calculates the probability that the
+    given observations after that time step would occur given being in that
+    state.
+    trans_probs - The transition probabilities between states as 
+        a list of lists. trans_prob[source state][dest state]
+    emit_probs - The probabilities that each state will produce each 
+        observation as a list of lists (or list of dicts).
+        emit_probs[state][observation]
+    sequence - The sequence of observations over time. sequence[time] = obs
     """
     n = len(trans_probs)
-    time_state_prob = [[0]*n for _ in sequence]
-    for i in xrange(n):
-        time_state_prob[-1][i] = 1
+    states = range(n)
 
-    for i, prev_obs in enumerate(sequence[-2::-1]):
-        t = len(sequence) - i - 2
-        observed = sequence[t+1]
-        for state in xrange(n):
-            time_state_prob[t][state] = sum(time_state_prob[t+1][next_state] * trans_probs[state][next_state] * emit_probs[next_state][observed] for next_state in xrange(n))
+    time_state_prob = [[0]*n for _ in sequence]
+    for state in states:
+        time_state_prob[-1][state] = 1
+
+    for t, observed in enum_range(sequence, -1, 0, -1):
+        for state in states:
+            time_state_prob[t-1][state] = sum(time_state_prob[t][next_state] 
+                    * trans_probs[state][next_state] 
+                    * emit_probs[next_state][observed] 
+                    for next_state in states)
     return time_state_prob
 
 if __name__ == '__main__':
