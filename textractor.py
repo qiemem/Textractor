@@ -5,19 +5,17 @@ from collections import defaultdict
 import itertools
 import numpy as np
 
-def normalized(seq):
-    total = sum(seq)
-    return (x / total for x in seq)
+def normalized(array):
+    return array / np.sum(array)
 
 def distribution(size):
-    return normalized([random.random() for i in xrange(size)])
+    return normalized(np.random.uniform(0, 1, size=size))
 
-def random_hmm(num_states, observables):
+def random_hmm(num_states, num_observables):
     states = range(num_states)
-    trans_probs = [list(distribution(num_states)) for s in states]
-    init_probs = list(distribution(num_states))
-    emit_probs = [dict(zip(observables, list(distribution(len(observables)))))
-                  for s in states]
+    trans_probs = np.array([distribution(num_states) for s in states])
+    init_probs = distribution(num_states)
+    emit_probs = np.array([distribution(num_observables) for s in states])
     return HMM(trans_probs, init_probs, emit_probs)
 
 class HMM(object):
@@ -26,25 +24,6 @@ class HMM(object):
         self.init_probs = init_probs
         self.emit_probs = emit_probs
 
-
-
-
-def make_tuples(tuple_size, sentences):
-    """
-    Iterates through the words in the sentences, yielding them as tuples of
-    size tuple_size.
-    
-    >>> list(make_tuples(3, ['hurray for information extraction', 'text mining is super fun']))
-    [('hurray', 'for', 'information'),
-     ('for', 'information', 'extraction'),
-     ('text', 'mining', 'is'),
-     ('mining', 'is', 'super'),
-     ('is', 'super', 'fun')]
-    """
-    for sentence in sentences:
-        words = sentence.split()
-        for i, w in enumerate(words[:-(tuple_size - 1)]):
-            yield tuple(words[i:i+tuple_size])
 
 def enum_range(seq, start=0, stop=None, step=1):
     """
@@ -82,19 +61,11 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence):
     n = len(init_probs)
     states = range(n)
 
-    time_state_prob = [[0]*n for _ in sequence]
-    for state, prob in enumerate(init_probs):
-        time_state_prob[0][state] = prob * emit_probs[state][sequence[0]]
+    time_state_prob = np.array([[0.0]*n for _ in sequence])
+    time_state_prob[0,:] = init_probs * emit_probs[:, sequence[0]]
 
     for t, observed in enum_range(sequence, 1):
-        if t % 10000 == 0:
-            print(t)
-        for state in states:
-            obs_prob = emit_probs[state][sequence[t]]
-            trans_prob = sum(trans_probs[prev_state][state] 
-                    * time_state_prob[t-1][prev_state] 
-                    for prev_state in states)
-            time_state_prob[t][state] = obs_prob * trans_prob
+        time_state_prob[t,:] = emit_probs[:, sequence[t]] * time_state_prob[t-1,:].dot(trans_probs)
     return time_state_prob
 
 
