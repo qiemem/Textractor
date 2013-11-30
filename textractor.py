@@ -1,6 +1,33 @@
 import fileinput
 import argparse
+import random
 from collections import defaultdict
+import itertools
+import numpy as np
+
+def normalized(seq):
+    total = sum(seq)
+    return (x / total for x in seq)
+
+def distribution(size):
+    return normalized([random.random() for i in xrange(size)])
+
+def random_hmm(num_states, observables):
+    states = range(num_states)
+    trans_probs = [list(distribution(num_states)) for s in states]
+    init_probs = list(distribution(num_states))
+    emit_probs = [dict(zip(observables, list(distribution(len(observables)))))
+                  for s in states]
+    return HMM(trans_probs, init_probs, emit_probs)
+
+class HMM(object):
+    def __init__(self, trans_probs, init_probs, emit_probs):
+        self.trans_probs = trans_probs
+        self.init_probs = init_probs
+        self.emit_probs = emit_probs
+
+
+
 
 def make_tuples(tuple_size, sentences):
     """
@@ -60,6 +87,8 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence):
         time_state_prob[0][state] = prob * emit_probs[state][sequence[0]]
 
     for t, observed in enum_range(sequence, 1):
+        if t % 10000 == 0:
+            print(t)
         for state in states:
             obs_prob = emit_probs[state][sequence[t]]
             trans_prob = sum(trans_probs[prev_state][state] 
