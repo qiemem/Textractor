@@ -70,17 +70,18 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence, normalize = True
 
     # note that normalizers[t] is P(seq[t] | seq[0], ..., seq[t-1])
     # see http://cs.brown.edu/courses/archive/2006-2007/cs195-5/lectures/lecture33.pdf
+    # Use that instead of wikipedia. It has formulas for normalized numbers.
+    # Math checks out.
 
     for t, observed in enum_range(sequence, 1):
         time_state_prob[t,:] = emit_probs[:, sequence[t]] * time_state_prob[t-1,:].dot(trans_probs)
         if normalize:
             normalizers[t] = time_state_prob[t,:].sum()
             time_state_prob[t,:] /= normalizers[t]
-    print(normalizers)
     return time_state_prob
 
 
-def backward_prob(trans_probs, emit_probs, sequence):
+def backward_prob(trans_probs, emit_probs, sequence, normalize = True):
     """
     For each state at each time step, calculates the probability that the
     given observations after that time step would occur given being in that
@@ -95,16 +96,18 @@ def backward_prob(trans_probs, emit_probs, sequence):
     n = len(trans_probs)
     states = range(n)
 
-    time_state_prob = [[0]*n for _ in sequence]
-    for state in states:
-        time_state_prob[-1][state] = 1
+    time_state_prob = np.array([[0.0]*n for _ in sequence])
+    time_state_prob[-1,:] = 1.0
+    if normalize:
+        normalizers = np.array([0.0]*len(sequence))
+        normalizers[-1] = time_state_prob[-1,:].sum()
+        time_state_prob[-1,:] /= normalizers[-1]
 
     for t, observed in enum_range(sequence, -1, 0, -1):
-        for state in states:
-            time_state_prob[t-1][state] = sum(time_state_prob[t][next_state] 
-                    * trans_probs[state][next_state] 
-                    * emit_probs[next_state][observed] 
-                    for next_state in states)
+        time_state_prob[t-1,:] = trans_probs.dot(time_state_prob[t,:] * emit_probs[:,observed])
+        if normalize:
+            normalizers[t-1] = time_state_prob[t-1,:].sum()
+            time_state_prob[t-1,:] /= normalizers[t-1]
     return time_state_prob
 
 if __name__ == '__main__':
