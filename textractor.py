@@ -44,7 +44,7 @@ def enum_range(seq, start=0, stop=None, step=1):
     for i in xrange(start, stop, step):
         yield i, seq[i]
 
-def forward_prob(trans_probs, init_probs, emit_probs, sequence):
+def forward_prob(trans_probs, init_probs, emit_probs, sequence, normalize = True):
     """
     For each state at each time step, calculates the probability that the hmm
     would produce the given sequence of observations up to that time step and
@@ -53,7 +53,7 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence):
         a list of lists. trans_prob[source state][dest state]
     init_probs - The probabilities of beginning in any given state as vector
         indexed by state.
-    emit_probs - The probabilities that each state will produce each 
+   emit_probs - The probabilities that each state will produce each 
         observation as a list of lists (or list of dicts).
         emit_probs[state][observation]
     sequence - The sequence of observations over time. sequence[time] = obs
@@ -63,9 +63,20 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence):
 
     time_state_prob = np.array([[0.0]*n for _ in sequence])
     time_state_prob[0,:] = init_probs * emit_probs[:, sequence[0]]
+    if normalize:
+        normalizers = np.array([0.0]*len(sequence))
+        normalizers[0] = time_state_prob[0,:].sum()
+        time_state_prob[0,:] /= normalizers[0]
+
+    # note that normalizers[t] is P(seq[t] | seq[0], ..., seq[t-1])
+    # see http://cs.brown.edu/courses/archive/2006-2007/cs195-5/lectures/lecture33.pdf
 
     for t, observed in enum_range(sequence, 1):
         time_state_prob[t,:] = emit_probs[:, sequence[t]] * time_state_prob[t-1,:].dot(trans_probs)
+        if normalize:
+            normalizers[t] = time_state_prob[t,:].sum()
+            time_state_prob[t,:] /= normalizers[t]
+    print(normalizers)
     return time_state_prob
 
 
