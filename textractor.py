@@ -57,6 +57,14 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence, normalize = True
         observation as a list of lists (or list of dicts).
         emit_probs[state][observation]
     sequence - The sequence of observations over time. sequence[time] = obs
+
+    Returns a matrix alpha representing the forward probabilities such that
+    alpha[t, s] = P(seq[0],..., seq[t], state[t] = s). If normalize is true, 
+    then the values of the alpha[t,:] are normalized on 
+    P(seq[t] | seq[0], ..., seq[t-1]) and those normalizing factors are 
+    returned along with the matrix.
+
+    To recover the original, do matrix[t,s] * normalizers[:t+1].prod()
     """
     n = len(init_probs)
     states = range(n)
@@ -78,7 +86,10 @@ def forward_prob(trans_probs, init_probs, emit_probs, sequence, normalize = True
         if normalize:
             normalizers[t] = time_state_prob[t,:].sum()
             time_state_prob[t,:] /= normalizers[t]
-    return time_state_prob
+    if normalize:
+        return time_state_prob, normalizers
+    else:
+        return time_state_prob
 
 
 def backward_prob(trans_probs, emit_probs, sequence, normalize = True):
@@ -92,6 +103,18 @@ def backward_prob(trans_probs, emit_probs, sequence, normalize = True):
         observation as a list of lists (or list of dicts).
         emit_probs[state][observation]
     sequence - The sequence of observations over time. sequence[time] = obs
+
+    Returns a matrix beta representing the backward probabilities such that
+    beta[t, s] = P(seq[t+1],..., seq[T] | state[t] = s). If normalize is true, 
+    then the values of the beta[t,:] are normalized on 
+    P(seq[t + 1] | seq[0], ..., seq[t]) and those normalizing factors are 
+    returned along with the matrix.
+
+    FIXME: I think normalization factors may be off by one. I can't quite tell
+    how the normalization should affect beta[T,:].
+    See http://cs.brown.edu/courses/archive/2006-2007/cs195-5/lectures/lecture33.pdf
+    and http://courses.media.mit.edu/2010fall/mas622j/ProblemSets/ps4/tutorial.pdf
+
     """
     n = len(trans_probs)
     states = range(n)
@@ -108,7 +131,10 @@ def backward_prob(trans_probs, emit_probs, sequence, normalize = True):
         if normalize:
             normalizers[t-1] = time_state_prob[t-1,:].sum()
             time_state_prob[t-1,:] /= normalizers[t-1]
-    return time_state_prob
+    if normalize:
+        return time_state_prob, normalizers
+    else:
+        return time_state_prob
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
