@@ -20,6 +20,15 @@ def random_hmm(num_states, num_observables):
 
 class HMM(object):
     def __init__(self, trans_probs, init_probs, emit_probs):
+        """
+        trans_probs - The transition probabilities between states as 
+            an array of arrays. trans_prob[source state, dest state]
+        init_probs - The probabilities of beginning in any given state as vector
+            indexed by state.
+        emit_probs - The probabilities that each state will produce each 
+            observation as an array of arrays.
+            emit_probs[state,observation]
+        """
         self.trans_probs = trans_probs
         self.init_probs = init_probs
         self.emit_probs = emit_probs
@@ -29,13 +38,6 @@ class HMM(object):
         For each state at each time step, calculates the probability that the hmm
         would produce the given sequence of observations up to that time step and
         land in that state.
-        trans_probs - The transition probabilities between states as 
-            a list of lists. trans_prob[source state][dest state]
-        init_probs - The probabilities of beginning in any given state as vector
-            indexed by state.
-        emit_probs - The probabilities that each state will produce each 
-            observation as a list of lists (or list of dicts).
-            emit_probs[state][observation]
         sequence - The sequence of observations over time. sequence[time] = obs
 
         Returns a matrix alpha representing the forward probabilities such that
@@ -71,8 +73,29 @@ class HMM(object):
         else:
             return time_state_probs
 
+    def backward_probs(self, sequence, normalizers = None):
+        """
+        For each state at each time step, calculates the probability that the
+        given observations after that time step would occur given being in that
+        state.
+        sequence - The sequence of observations over time. sequence[time] = obs
+        normalizers - If given, normalizes each value of the result matrix
+            so normed_beta[t,s] = beta[t, s] / normalizers[t+1:].prod()
 
+        Returns a matrix beta representing the backward probabilities such that
+        beta[t, s] = P(seq[t+1],..., seq[T] | state[t] = s).
+        """
+        n = len(self.trans_probs)
+        states = range(n)
 
+        time_state_probs = np.array([[0.0]*n for _ in sequence])
+        time_state_probs[-1,:] = 1.0
+
+        for t, observed in enum_range(sequence, -1, 0, -1):
+            time_state_probs[t-1,:] = self.trans_probs.dot(time_state_probs[t,:] * self.emit_probs[:,observed])
+            if normalizers != None:
+                time_state_probs[t-1,:] /= normalizers[t]
+        return time_state_probs
 
 def enum_range(seq, start=0, stop=None, step=1):
     """
@@ -92,35 +115,6 @@ def enum_range(seq, start=0, stop=None, step=1):
 
     for i in xrange(start, stop, step):
         yield i, seq[i]
-
-def backward_prob(trans_probs, emit_probs, sequence, normalizers = None):
-    """
-    For each state at each time step, calculates the probability that the
-    given observations after that time step would occur given being in that
-    state.
-    trans_probs - The transition probabilities between states as 
-        a list of lists. trans_prob[source state][dest state]
-    emit_probs - The probabilities that each state will produce each 
-        observation as a list of lists (or list of dicts).
-        emit_probs[state][observation]
-    sequence - The sequence of observations over time. sequence[time] = obs
-    normalizers - If given, normalizes each value of the result matrix
-        so normed_beta[t,s] = beta[t, s] / normalizers[t+1:].prod()
-
-    Returns a matrix beta representing the backward probabilities such that
-    beta[t, s] = P(seq[t+1],..., seq[T] | state[t] = s).
-    """
-    n = len(trans_probs)
-    states = range(n)
-
-    time_state_probs = np.array([[0.0]*n for _ in sequence])
-    time_state_probs[-1,:] = 1.0
-
-    for t, observed in enum_range(sequence, -1, 0, -1):
-        time_state_probs[t-1,:] = trans_probs.dot(time_state_probs[t,:] * emit_probs[:,observed])
-        if normalizers != None:
-            time_state_probs[t-1,:] /= normalizers[t]
-    return time_state_probs
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
