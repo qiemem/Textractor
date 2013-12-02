@@ -24,6 +24,55 @@ class HMM(object):
         self.init_probs = init_probs
         self.emit_probs = emit_probs
 
+    def forward_probs(self, sequence, normalize = False):
+        """
+        For each state at each time step, calculates the probability that the hmm
+        would produce the given sequence of observations up to that time step and
+        land in that state.
+        trans_probs - The transition probabilities between states as 
+            a list of lists. trans_prob[source state][dest state]
+        init_probs - The probabilities of beginning in any given state as vector
+            indexed by state.
+        emit_probs - The probabilities that each state will produce each 
+            observation as a list of lists (or list of dicts).
+            emit_probs[state][observation]
+        sequence - The sequence of observations over time. sequence[time] = obs
+
+        Returns a matrix alpha representing the forward probabilities such that
+        alpha[t, s] = P(seq[0],..., seq[t], state[t] = s). If normalize is true, 
+        then the values of the alpha[t,:] are normalized on 
+        P(seq[t] | seq[0], ..., seq[t-1]) and those normalizing factors are 
+        returned along with the matrix.
+
+        To recover the original, do matrix[t,s] * normalizers[:t+1].prod()
+        """
+        n = len(self.init_probs)
+        states = range(n)
+
+        time_state_probs = np.array([[0.0]*n for _ in sequence])
+        time_state_probs[0,:] = self.init_probs * self.emit_probs[:, sequence[0]]
+        if normalize:
+            normalizers = np.array([0.0]*len(sequence))
+            normalizers[0] = time_state_probs[0,:].sum()
+            time_state_probs[0,:] /= normalizers[0]
+
+        # note that normalizers[t] is P(seq[t] | seq[0], ..., seq[t-1])
+        # see http://cs.brown.edu/courses/archive/2006-2007/cs195-5/lectures/lecture33.pdf
+        # Use that instead of wikipedia. It has formulas for normalized numbers.
+        # Math checks out.
+
+        for t, observed in enum_range(sequence, 1):
+            time_state_probs[t,:] = self.emit_probs[:, sequence[t]] * time_state_probs[t-1,:].dot(self.trans_probs)
+            if normalize:
+                normalizers[t] = time_state_probs[t,:].sum()
+                time_state_probs[t,:] /= normalizers[t]
+        if normalize:
+            return time_state_probs, normalizers
+        else:
+            return time_state_probs
+
+
+
 
 def enum_range(seq, start=0, stop=None, step=1):
     """
@@ -43,54 +92,6 @@ def enum_range(seq, start=0, stop=None, step=1):
 
     for i in xrange(start, stop, step):
         yield i, seq[i]
-
-def forward_prob(trans_probs, init_probs, emit_probs, sequence, normalize = False):
-    """
-    For each state at each time step, calculates the probability that the hmm
-    would produce the given sequence of observations up to that time step and
-    land in that state.
-    trans_probs - The transition probabilities between states as 
-        a list of lists. trans_prob[source state][dest state]
-    init_probs - The probabilities of beginning in any given state as vector
-        indexed by state.
-   emit_probs - The probabilities that each state will produce each 
-        observation as a list of lists (or list of dicts).
-        emit_probs[state][observation]
-    sequence - The sequence of observations over time. sequence[time] = obs
-
-    Returns a matrix alpha representing the forward probabilities such that
-    alpha[t, s] = P(seq[0],..., seq[t], state[t] = s). If normalize is true, 
-    then the values of the alpha[t,:] are normalized on 
-    P(seq[t] | seq[0], ..., seq[t-1]) and those normalizing factors are 
-    returned along with the matrix.
-
-    To recover the original, do matrix[t,s] * normalizers[:t+1].prod()
-    """
-    n = len(init_probs)
-    states = range(n)
-
-    time_state_prob = np.array([[0.0]*n for _ in sequence])
-    time_state_prob[0,:] = init_probs * emit_probs[:, sequence[0]]
-    if normalize:
-        normalizers = np.array([0.0]*len(sequence))
-        normalizers[0] = time_state_prob[0,:].sum()
-        time_state_prob[0,:] /= normalizers[0]
-
-    # note that normalizers[t] is P(seq[t] | seq[0], ..., seq[t-1])
-    # see http://cs.brown.edu/courses/archive/2006-2007/cs195-5/lectures/lecture33.pdf
-    # Use that instead of wikipedia. It has formulas for normalized numbers.
-    # Math checks out.
-
-    for t, observed in enum_range(sequence, 1):
-        time_state_prob[t,:] = emit_probs[:, sequence[t]] * time_state_prob[t-1,:].dot(trans_probs)
-        if normalize:
-            normalizers[t] = time_state_prob[t,:].sum()
-            time_state_prob[t,:] /= normalizers[t]
-    if normalize:
-        return time_state_prob, normalizers
-    else:
-        return time_state_prob
-
 
 def backward_prob(trans_probs, emit_probs, sequence, normalizers = None):
     """
@@ -112,14 +113,14 @@ def backward_prob(trans_probs, emit_probs, sequence, normalizers = None):
     n = len(trans_probs)
     states = range(n)
 
-    time_state_prob = np.array([[0.0]*n for _ in sequence])
-    time_state_prob[-1,:] = 1.0
+    time_state_probs = np.array([[0.0]*n for _ in sequence])
+    time_state_probs[-1,:] = 1.0
 
     for t, observed in enum_range(sequence, -1, 0, -1):
-        time_state_prob[t-1,:] = trans_probs.dot(time_state_prob[t,:] * emit_probs[:,observed])
+        time_state_probs[t-1,:] = trans_probs.dot(time_state_probs[t,:] * emit_probs[:,observed])
         if normalizers != None:
-            time_state_prob[t-1,:] /= normalizers[t]
-    return time_state_prob
+            time_state_probs[t-1,:] /= normalizers[t]
+    return time_state_probs
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
