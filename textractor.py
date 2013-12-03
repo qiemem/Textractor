@@ -118,7 +118,7 @@ class HMM(object):
         emit_probs_num = np.zeros(self.emit_probs.shape)
         emit_probs_denom = np.zeros(self.emit_probs[0].shape)
 
-        neg_log_likelihood = 0
+        nll = 0 # negative log likelihood
 
         for seq in sequences:
             forward, normalizers = self.forward_probs(seq, True)
@@ -134,19 +134,19 @@ class HMM(object):
             emit_probs_denom += state_probs.sum(0)
             for word in xrange(len(self.emit_probs[0])):
                 emit_probs_num[:,word] += state_probs[seq==word].sum(0)
-            neg_log_likelihood -= np.log(normalizers).sum()
+            nll -= np.log(normalizers).sum()
 
         new_trans_probs = (trans_probs_num.transpose() / trans_probs_denom).transpose()
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
-        return HMM(new_trans_probs, new_init_probs, new_emit_probs), neg_log_likelihood
+        return HMM(new_trans_probs, new_init_probs, new_emit_probs), nll
 
-def maximize_expectation(hmm, sequences, max_iters = 10000, likelihood_percent = 0.001, print_likelihoods = False):
+def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.001, print_nll = False):
     last_l = np.inf
     for i in xrange(max_iters):
         hmm, l = hmm.improve(sequences)
-        if print_likelihoods:
+        if print_nll:
             print(l)
-        if likelihood_percent > (1 - l / last_l) and l <= last_l:
+        if nll_percent > (1 - l / last_l) and l <= last_l:
             return hmm
         last_l = l
     return hmm
