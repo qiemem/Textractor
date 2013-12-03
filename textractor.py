@@ -10,7 +10,7 @@ def normalized(array):
     return array / np.sum(array)
 
 def distribution(size):
-    return normalized(np.random.uniform(0, 1, size=size))
+    return normalized(np.array([random.random() for i in xrange(size)]))
 
 def random_hmm(num_states, num_observables):
     states = range(num_states)
@@ -94,7 +94,7 @@ class HMM(object):
 
         for t, observed in enum_range(sequence, -1, 0, -1):
             time_state_probs[t-1] = self.trans_probs.dot(time_state_probs[t] * self.emit_probs[:,observed])
-            if normalizers != None:
+            if isinstance(normalizers, np.ndarray):
                 time_state_probs[t-1] /= normalizers[t]
         return time_state_probs
 
