@@ -4,6 +4,7 @@ import random
 from collections import defaultdict
 import itertools
 import numpy as np
+import sys
 
 def normalized(array):
     return array / np.sum(array)
@@ -145,7 +146,7 @@ def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.001,
     for i in xrange(max_iters):
         hmm, l = hmm.improve(sequences)
         if print_nll:
-            print(l)
+            log(l)
         if nll_percent > (1 - l / last_l) and l <= last_l:
             return hmm
         last_l = l
@@ -170,6 +171,10 @@ def enum_range(seq, start=0, stop=None, step=1):
     for i in xrange(start, stop, step):
         yield i, seq[i]
 
+def log(string):
+    sys.stderr.write(str(string))
+    sys.stderr.write('\n')
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
     parser.add_argument('-n', default=100, type=int, 
@@ -178,11 +183,18 @@ if __name__ == '__main__':
             help='File containing sentences to process (defaults to stdin)')
 
     args = parser.parse_args()
-    vecs = defaultdict(lambda : [0]*args.n)
-    for w1, w2 in make_tuples(2, fileinput.input(args.f)):
-        vecs[w1][hash(w2) % args.n] += 1
-        vecs[w2][hash(w1) % args.n] += 1
 
-    for w, v in vecs.iteritems():
-        print(w + ' ' + ' '.join(map(str, v)))
+    log('Reading sequences')
+    seqs = [seq.split for seq in fileinput.input(args.f)]
+    words = list({w for seq in seqs for w in seqs})
+    log('Coding sequences')
+    word_codes = {w: i for i,w in enumerate(words)}
+    coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
+    log('Generating initial HMM')
+    init_hmm = random_hmm(args.n, len(words))
+    log('Running EM')
+    final_hmm = maximize_expectation(init_hmm, coded_seqs, print_nll = True)
+
+    for i, w in enumerate(words):
+        print(w + ' ' + ' '.join(final_hmm.emit_probs[:, w]))
 
