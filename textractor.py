@@ -153,6 +153,7 @@ class HMM(object):
                 emit_probs_num[:,word] += state_probs[seq==word].sum(0)
             nll -= np.log(normalizers).sum()
 
+        trans_probs_denom += 1
         new_trans_probs = (trans_probs_num.transpose() / trans_probs_denom).transpose()
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
         return HMM(new_trans_probs, new_init_probs, new_emit_probs), nll
@@ -166,6 +167,9 @@ def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.0000
         if nll_percent > (1 - l / last_l) and l <= last_l:
             return hmm
         last_l = l
+        if np.isnan(l):
+            log('NaNs detected!!!')
+            return hmm
     return hmm
 
 def enum_range(seq, start=0, stop=None, step=1):
