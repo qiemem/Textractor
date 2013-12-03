@@ -19,6 +19,13 @@ def random_hmm(num_states, num_observables):
     emit_probs = np.array([distribution(num_observables) for s in states])
     return HMM(trans_probs, init_probs, emit_probs)
 
+def weighted_random(weights):
+    r = random.random()
+    for i,w in enumerate(weights):
+        r -= w
+        if r < 0:
+            return i
+
 class HMM(object):
     def __init__(self, trans_probs, init_probs, emit_probs):
         """
@@ -33,6 +40,14 @@ class HMM(object):
         self.trans_probs = trans_probs
         self.init_probs = init_probs
         self.emit_probs = emit_probs
+
+    def gen_seq(self, length):
+        seq = np.zeros(length, dtype = np.int)
+        state = weighted_random(self.init_probs)
+        for i in xrange(length):
+            seq[i] = weighted_random(self.emit_probs[state])
+            state = weighted_random(self.trans_probs[state])
+        return seq
 
     def forward_probs(self, sequence, normalize = False):
         """
