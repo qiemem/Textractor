@@ -148,7 +148,7 @@ class HMM(object):
             trans_probs_denom += state_probs[:-1].sum(0)
 
             emit_probs_denom += state_probs.sum(0)
-            for word in xrange(len(self.emit_probs[0])):
+            for word in set(seq):
                 emit_probs_num[:,word] += state_probs[seq==word].sum(0)
             nll -= np.log(normalizers).sum()
 
