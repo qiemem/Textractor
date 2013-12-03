@@ -140,10 +140,15 @@ class HMM(object):
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
         return HMM(new_trans_probs, new_init_probs, new_emit_probs), neg_log_likelihood
 
-def maximize_expectation(hmm, sequences, iters = 10):
-    for i in xrange(iters):
+def maximize_expectation(hmm, sequences, max_iters = 10000, likelihood_percent = 0.001, print_likelihoods = False):
+    last_l = np.inf
+    for i in xrange(max_iters):
         hmm, l = hmm.improve(sequences)
-        print(l)
+        if print_likelihoods:
+            print(l)
+        if likelihood_percent > (1 - l / last_l) and l <= last_l:
+            return hmm
+        last_l = l
     return hmm
 
 def enum_range(seq, start=0, stop=None, step=1):
