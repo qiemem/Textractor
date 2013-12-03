@@ -51,10 +51,10 @@ class HMM(object):
         n = len(self.init_probs)
         states = range(n)
 
-        time_state_probs = np.array([[0.0]*n for _ in sequence])
+        time_state_probs = np.zeros((len(sequence), n))
         time_state_probs[0,:] = self.init_probs * self.emit_probs[:, sequence[0]]
         if normalize:
-            normalizers = np.array([0.0]*len(sequence))
+            normalizers = np.zeros(sequence.shape)
             normalizers[0] = time_state_probs[0,:].sum()
             time_state_probs[0,:] /= normalizers[0]
 
@@ -88,7 +88,7 @@ class HMM(object):
         n = len(self.trans_probs)
         states = range(n)
 
-        time_state_probs = np.array([[0.0]*n for _ in sequence])
+        time_state_probs = np.zeros((len(sequence), n))
         time_state_probs[-1,:] = 1.0
 
         for t, observed in enum_range(sequence, -1, 0, -1):
@@ -102,7 +102,8 @@ class HMM(object):
 
     def expected_trans(self, sequence, normed_forward_probs, normed_backward_probs, normalizers):
         states = range(len(self.init_probs))
-        result = np.array([[[0.0]*len(states) for i in states] for t in xrange(len(sequence)-1)])
+        result = np.zeros((len(sequence)-1, len(states), len(states)))
+        #result = np.array([[[0.0]*len(states) for i in states] for t in xrange(len(sequence)-1)])
         for t, word in enum_range(sequence,0,-1,1):
             next_word = sequence[t+1]
             for source_state in states:
