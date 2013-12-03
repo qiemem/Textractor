@@ -5,6 +5,7 @@ from collections import defaultdict
 import itertools
 import numpy as np
 import sys
+from preprocess_text import stem, isStopWord
 
 def normalized(array):
     return array / np.sum(array)
@@ -191,6 +192,20 @@ def enum_range(seq, start=0, stop=None, step=1):
     for i in xrange(start, stop, step):
         yield i, seq[i]
 
+def load_sequences(fn, do_stem):
+    seqs = [seq.split() for seq in fileinput.input(fn)]
+    words = list({w for seq in seqs for w in seq})
+    if do_stem:
+        seqs = [[stem(w) for w in seq if not isStopWord(w)] for seq in seqs]
+        stemmed_words = list({w for seq in seqs for w in seq})
+    else:
+        stemmed_words = words
+    word_codes = {w: i for i,w in enumerate(stemmed_words)}
+    coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
+    return seqs, words, word_codes, coded_seqs
+    
+
+# TODO: Run multiple HMMs in parallel, take best
 def log(string):
     sys.stderr.write(str(string))
     sys.stderr.write('\n')
@@ -201,20 +216,20 @@ if __name__ == '__main__':
             help='Length of feature vectors (default is 100)')
     parser.add_argument('-f', default='-', type=str, metavar='filename',
             help='File containing sentences to process (defaults to stdin)')
+    parser.add_argument('-s', default=False, action='store_true',
+            help='Run HMM on stemmed words')
 
     args = parser.parse_args()
 
     log('Reading sequences')
-    seqs = [seq.split() for seq in fileinput.input(args.f)]
-    words = list({w for seq in seqs for w in seq})
-    log('Coding sequences')
-    word_codes = {w: i for i,w in enumerate(words)}
-    coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
+    seqs, words, word_codes, coded_seqs = load_sequences(args.f, args.s)
     log('Generating initial HMM')
     init_hmm = random_hmm(args.n, len(words))
     log('Running EM')
     final_hmm = maximize_expectation(init_hmm, coded_seqs, print_nll = True)
 
-    for i, w in enumerate(words):
-        print(w + ' ' + ' '.join(str(x) for x in final_hmm.emit_probs[:, i]))
+    for w in words:
+        if not isStopWord(w):
+            i = word_codes[stem(w)]
+            print(w + ' ' + ' '.join(str(x) for x in final_hmm.emit_probs[:, i]))
 
