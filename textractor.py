@@ -97,6 +97,56 @@ class HMM(object):
                 time_state_probs[t-1,:] /= normalizers[t]
         return time_state_probs
 
+    def state_probs(self, normed_forward_probs, normed_backward_probs):
+        return normed_forward_probs * normed_backward_probs
+
+    def expected_trans(self, sequence, normed_forward_probs, normed_backward_probs, normalizers):
+        states = range(len(self.init_probs))
+        result = np.array([[[0.0]*len(states) for i in states] for t in xrange(len(sequence)-1)])
+        for t, word in enum_range(sequence,0,-1,1):
+            next_word = sequence[t+1]
+            for source_state in states:
+                for dest_state in states:
+                    result[t, source_state, dest_state] = normed_forward_probs[t,source_state] * self.trans_probs[source_state, dest_state] * self.emit_probs[dest_state, next_word] * normed_backward_probs[t+1, dest_state] / normalizers[t+1]
+        return result
+
+    def improve(self, sequences):
+        num_seqs = len(sequences)
+        new_init_probs = np.zeros(self.init_probs.shape)
+        trans_probs_num = np.zeros(self.trans_probs.shape)
+        trans_probs_denom = np.zeros(self.init_probs.shape)
+        emit_probs_num = np.zeros(self.emit_probs.shape)
+        emit_probs_denom = np.zeros(self.emit_probs[0].shape)
+
+        neg_log_likelihood = 0
+
+        for seq in sequences:
+            forward, normalizers = self.forward_probs(seq, True)
+            backward = self.backward_probs(seq, normalizers)
+            state_probs = self.state_probs(forward, backward)
+            expected_trans = self.expected_trans(seq, forward, backward, normalizers)
+
+            new_init_probs += state_probs[1,:]
+            
+            trans_probs_num += expected_trans.sum(0)
+            trans_probs_denom += state_probs[:-1].sum(0)
+
+            emit_probs_denom += state_probs.sum(0)
+            for word in xrange(len(self.emit_probs[0])):
+                emit_probs_num[:,word] += state_probs[seq==word].sum(0)
+                #emit_probs_num[:,word] += sum(probs for t,probs in enumerate(state_probs) if seq[t]==word)
+            neg_log_likelihood -= np.log(normalizers).sum()
+
+        new_trans_probs = (trans_probs_num.transpose() / trans_probs_denom).transpose()
+        new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
+        print(neg_log_likelihood)
+        return HMM(new_trans_probs, new_init_probs, new_emit_probs)
+
+def maximize_expectation(hmm, sequences, iters = 10):
+    for i in xrange(iters):
+        hmm = hmm.improve(sequences)
+    return hmm
+
 def enum_range(seq, start=0, stop=None, step=1):
     """
     Like `enumerate`, but lets you specify start, stop, and step used in
