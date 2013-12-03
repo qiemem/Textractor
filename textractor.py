@@ -185,11 +185,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     log('Reading sequences')
-    seqs = [seq.split for seq in fileinput.input(args.f)]
-    words = list({w for seq in seqs for w in seqs})
+    seqs = [seq.split() for seq in fileinput.input(args.f)]
+    words = list({w for seq in seqs for w in seq})
     log('Coding sequences')
     word_codes = {w: i for i,w in enumerate(words)}
     coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
+    log(coded_seqs)
     log('Generating initial HMM')
     init_hmm = random_hmm(args.n, len(words))
     log('Running EM')
