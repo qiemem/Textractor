@@ -117,7 +117,7 @@ class HMM(object):
         trans_probs_num = np.zeros(self.trans_probs.shape)
         trans_probs_denom = np.zeros(self.init_probs.shape)
         emit_probs_num = np.zeros(self.emit_probs.shape)
-        emit_probs_denom = np.zeros(self.emit_probs[0].shape)
+        emit_probs_denom = np.zeros(self.emit_probs[:,0].shape)
 
         nll = 0 # negative log likelihood
 
@@ -141,7 +141,7 @@ class HMM(object):
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
         return HMM(new_trans_probs, new_init_probs, new_emit_probs), nll
 
-def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.001, print_nll = False):
+def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.00001, print_nll = False):
     last_l = np.inf
     for i in xrange(max_iters):
         hmm, l = hmm.improve(sequences)
@@ -190,12 +190,11 @@ if __name__ == '__main__':
     log('Coding sequences')
     word_codes = {w: i for i,w in enumerate(words)}
     coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
-    log(coded_seqs)
     log('Generating initial HMM')
     init_hmm = random_hmm(args.n, len(words))
     log('Running EM')
     final_hmm = maximize_expectation(init_hmm, coded_seqs, print_nll = True)
 
     for i, w in enumerate(words):
-        print(w + ' ' + ' '.join(final_hmm.emit_probs[:, w]))
+        print(w + ' ' + ' '.join(str(x) for x in final_hmm.emit_probs[:, i]))
 
