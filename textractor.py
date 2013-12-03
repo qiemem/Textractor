@@ -121,9 +121,10 @@ class HMM(object):
         result = np.zeros((len(sequence)-1, len(states), len(states)))
         for t, word in enum_range(sequence,0,-1,1):
             next_word = sequence[t+1]
-            for source_state in states:
-                for dest_state in states:
-                    result[t, source_state, dest_state] = normed_forward_probs[t,source_state] * self.trans_probs[source_state, dest_state] * self.emit_probs[dest_state, next_word] * normed_backward_probs[t+1, dest_state] / normalizers[t+1]
+            result[t] = normed_forward_probs[t,:,np.newaxis] 
+            result[t] *= self.emit_probs[:,next_word] 
+            result[t] *= self.trans_probs 
+            result[t] *= normed_backward_probs[t+1] / normalizers[t+1]
         return result
 
     def improve(self, sequences):
