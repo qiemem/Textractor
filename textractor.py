@@ -42,7 +42,7 @@ class HMM(object):
 
         Returns a matrix alpha representing the forward probabilities such that
         alpha[t, s] = P(seq[0],..., seq[t], state[t] = s). If normalize is true, 
-        then the values of the alpha[t,:] are normalized on 
+        then the values of the alpha[t] are normalized on 
         P(seq[t] | seq[0], ..., seq[t-1]) and those normalizing factors are 
         returned along with the matrix.
 
@@ -52,11 +52,11 @@ class HMM(object):
         states = range(n)
 
         time_state_probs = np.zeros((len(sequence), n))
-        time_state_probs[0,:] = self.init_probs * self.emit_probs[:, sequence[0]]
+        time_state_probs[0] = self.init_probs * self.emit_probs[:, sequence[0]]
         if normalize:
             normalizers = np.zeros(sequence.shape)
-            normalizers[0] = time_state_probs[0,:].sum()
-            time_state_probs[0,:] /= normalizers[0]
+            normalizers[0] = time_state_probs[0].sum()
+            time_state_probs[0] /= normalizers[0]
 
         # note that normalizers[t] is P(seq[t] | seq[0], ..., seq[t-1])
         # see http://cs.brown.edu/courses/archive/2006-2007/cs195-5/lectures/lecture33.pdf
@@ -64,10 +64,10 @@ class HMM(object):
         # Math checks out.
 
         for t, observed in enum_range(sequence, 1):
-            time_state_probs[t,:] = self.emit_probs[:, sequence[t]] * time_state_probs[t-1,:].dot(self.trans_probs)
+            time_state_probs[t] = self.emit_probs[:, sequence[t]] * time_state_probs[t-1].dot(self.trans_probs)
             if normalize:
-                normalizers[t] = time_state_probs[t,:].sum()
-                time_state_probs[t,:] /= normalizers[t]
+                normalizers[t] = time_state_probs[t].sum()
+                time_state_probs[t] /= normalizers[t]
         if normalize:
             return time_state_probs, normalizers
         else:
@@ -89,12 +89,12 @@ class HMM(object):
         states = range(n)
 
         time_state_probs = np.zeros((len(sequence), n))
-        time_state_probs[-1,:] = 1.0
+        time_state_probs[-1] = 1.0
 
         for t, observed in enum_range(sequence, -1, 0, -1):
-            time_state_probs[t-1,:] = self.trans_probs.dot(time_state_probs[t,:] * self.emit_probs[:,observed])
+            time_state_probs[t-1] = self.trans_probs.dot(time_state_probs[t] * self.emit_probs[:,observed])
             if normalizers != None:
-                time_state_probs[t-1,:] /= normalizers[t]
+                time_state_probs[t-1] /= normalizers[t]
         return time_state_probs
 
     def state_probs(self, normed_forward_probs, normed_backward_probs):
@@ -103,7 +103,6 @@ class HMM(object):
     def expected_trans(self, sequence, normed_forward_probs, normed_backward_probs, normalizers):
         states = range(len(self.init_probs))
         result = np.zeros((len(sequence)-1, len(states), len(states)))
-        #result = np.array([[[0.0]*len(states) for i in states] for t in xrange(len(sequence)-1)])
         for t, word in enum_range(sequence,0,-1,1):
             next_word = sequence[t+1]
             for source_state in states:
@@ -127,7 +126,7 @@ class HMM(object):
             state_probs = self.state_probs(forward, backward)
             expected_trans = self.expected_trans(seq, forward, backward, normalizers)
 
-            new_init_probs += state_probs[1,:]
+            new_init_probs += state_probs[1]
             
             trans_probs_num += expected_trans.sum(0)
             trans_probs_denom += state_probs[:-1].sum(0)
@@ -135,17 +134,16 @@ class HMM(object):
             emit_probs_denom += state_probs.sum(0)
             for word in xrange(len(self.emit_probs[0])):
                 emit_probs_num[:,word] += state_probs[seq==word].sum(0)
-                #emit_probs_num[:,word] += sum(probs for t,probs in enumerate(state_probs) if seq[t]==word)
             neg_log_likelihood -= np.log(normalizers).sum()
 
         new_trans_probs = (trans_probs_num.transpose() / trans_probs_denom).transpose()
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
-        print(neg_log_likelihood)
-        return HMM(new_trans_probs, new_init_probs, new_emit_probs)
+        return HMM(new_trans_probs, new_init_probs, new_emit_probs), neg_log_likelihood
 
 def maximize_expectation(hmm, sequences, iters = 10):
     for i in xrange(iters):
-        hmm = hmm.improve(sequences)
+        hmm, l = hmm.improve(sequences)
+        print(l)
     return hmm
 
 def enum_range(seq, start=0, stop=None, step=1):
