@@ -18,9 +18,9 @@ def preprocess(aFileName, aNewFileName):
 	with open(aFileName) as myFile:
 		with open(aNewFileName,'w') as myNewFile:
 			for aLine in myFile:
-				myWordList = [x.lower() for x in aLine.rstrip().split(" ")]
+				myWordList = [x[0].lower() + x[1:] for x in aLine.rstrip().split(" ")]
 				#myFilteredWords = [stem(aWord) for aWord in myWordList if not theStopWordDict.get(aWord,False)]
-				myFilteredWords = [aWord for aWord in myWordList if not theStopWordDict.get(aWord,False) and not punctFind.match(aWord)]
+				myFilteredWords = [aWord[0].upper() + aWord[1:] for aWord in myWordList if not theStopWordDict.get(aWord,False) and not punctFind.match(aWord)]
 				myNewFile.write(' '.join(myFilteredWords)+'\n')
 				myCurrentLine = myCurrentLine + 1
 				if (myCurrentLine %1000 == 0): print myCurrentLine #a little over 2872000 lines
