@@ -171,12 +171,15 @@ class HMM(object):
         trans_probs_denom += 1.0
         trans_probs_num += 1.0 / len(trans_probs_denom)
         new_trans_probs = (trans_probs_num.transpose() / trans_probs_denom).transpose()
+        emit_probs_num += 1.0 / len(emit_probs_num[0])
+        emit_probs_denom += 1
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
         return HMM(new_trans_probs, new_init_probs, new_emit_probs), nll
 
 def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.00001, print_nll = False):
     last_l = np.inf
     for i in xrange(max_iters):
+        #hmm, l = hmm.improve(random.sample(sequences, 10000))
         hmm, l = hmm.improve(sequences)
         if print_nll:
             log(l)
@@ -207,8 +210,12 @@ def enum_range(seq, start=0, stop=None, step=1):
     for i in xrange(start, stop, step):
         yield i, seq[i]
 
-def load_sequences(fn, do_stem):
-    seqs = [seq.split() for seq in fileinput.input(fn)]
+def load_sequences(filename, do_stem = False):
+    """
+    Returns (seqs, words, word_codes, coded_seqs) .`words` is never stemmed.
+    All others use stemming if do_stem is true.
+    """
+    seqs = [seq.split() for seq in fileinput.input(filename)]
     words = list({w for seq in seqs for w in seq})
     if do_stem:
         seqs = [[stem(w) for w in seq if not isStopWord(w)] for seq in seqs]
@@ -232,6 +239,8 @@ if __name__ == '__main__':
             help='File containing sentences to process (defaults to stdin)')
     parser.add_argument('-s', default=False, action='store_true',
             help='Run HMM on stemmed words')
+    parser.add_argument('-i', default=10000, type=int,
+            help='Maximum number of iterations of EM to do')
 
     args = parser.parse_args()
 
@@ -240,7 +249,7 @@ if __name__ == '__main__':
     log('Generating initial HMM')
     init_hmm = random_hmm(args.n, len(word_codes))
     log('Running EM')
-    final_hmm = maximize_expectation(init_hmm, coded_seqs, print_nll = True)
+    final_hmm = maximize_expectation(init_hmm, coded_seqs, max_iters = args.i, print_nll = True)
 
     for w in words:
         if not args.s or not isStopWord(w):
