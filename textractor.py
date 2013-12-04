@@ -155,7 +155,7 @@ class HMM(object):
             state_probs = self.state_probs(forward, backward)
             expected_trans = self.expected_trans(seq, forward, backward, normalizers)
 
-            new_init_probs += state_probs[1]
+            new_init_probs += state_probs[0]
             
             trans_probs_num += expected_trans.sum(0)
             trans_probs_denom += state_probs[:-1].sum(0)
@@ -174,7 +174,7 @@ class HMM(object):
         emit_probs_num += 1.0 / len(emit_probs_num[0])
         emit_probs_denom += 1
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
-        return HMM(new_trans_probs, new_init_probs, new_emit_probs), nll
+        return HMM(new_trans_probs, new_init_probs / len(sequences), new_emit_probs), nll
 
 def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.00001, print_nll = False):
     last_l = np.inf
