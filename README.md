@@ -14,17 +14,18 @@ appears next to a word who's hash value mod 100 is j.
 Usage
 ---
 
-    usage: textractor.py [-h] [-n N] [-f filename]
+    usage: textractor.py [-h] [-n N] [-i r] [-f filename]
 
     Given a bunch of sentences, outputs feature vectors of the words
 
     optional arguments:
       -h, --help   show this help message and exit
       -n N         Length of feature vectors (default is 100)
+      -i r/m       initialization mode. Random or Mod (default is random)
       -f filename  File containing sentences to process (defaults to stdin)
 
 For example:
 
-    python textractor.py -n 20 -f dataset.txt > output.txt
+    python textractor.py -n 20 -i r -f dataset.txt > output.txt
 
 Note that it runs much faster with pypy.

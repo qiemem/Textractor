@@ -13,11 +13,44 @@ def normalized(array):
 def distribution(size):
     return normalized(np.array([random.random() for i in xrange(size)]))
 
+def make_tuples(tuple_size, seqs):
+    for seq in seqs:
+
+        for i, w in enumerate(seq[:-(tuple_size - 1)]):
+
+            yield tuple(seq[i:i+tuple_size])
+
 def random_hmm(num_states, num_observables):
     states = range(num_states)
     trans_probs = np.array([distribution(num_states) for s in states])
     init_probs = distribution(num_states)
     emit_probs = np.array([distribution(num_observables) for s in states])
+    print emit_probs
+    return HMM(trans_probs, init_probs, emit_probs)
+
+def make_modded_cooccurrence(num_states,num_observables, sequences):
+    states = range(num_states)
+    trans_probs = np.array([distribution(num_states) for s in states])
+    init_probs = distribution(num_states)
+    emit_probs = np.zeros((len(states), num_observables))
+    #emit_probs = np.array([np.array([0 for i in range(num_observables)]) for s in states])
+    for w1, w2 in make_tuples(2, sequences):
+        emit_probs[hash(w1)%num_states, word_codes[w2]] += 1
+        emit_probs[hash(w2)%num_states, word_codes[w1]] += 1
+    """
+    for w in words:
+        if do_stem:
+            w = stem(w)
+        if not isStopWord(w):
+            i = word_codes[w]
+            row = hash(w)%num_states
+            emit_probs[row,i]+=1
+    """
+    for i in range(num_observables):
+        emit_probs[:,i]=normalized(emit_probs[:,i])
+    
+    print emit_probs
+    print 'you are here'
     return HMM(trans_probs, init_probs, emit_probs)
 
 def weighted_random(weights):
@@ -214,6 +247,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
     parser.add_argument('-n', default=100, type=int, 
             help='Length of feature vectors (default is 100)')
+    parser.add_argument('-i', default='r', type=str,
+            help='random initialization type r, modded initialization type m')
     parser.add_argument('-f', default='-', type=str, metavar='filename',
             help='File containing sentences to process (defaults to stdin)')
     parser.add_argument('-s', default=False, action='store_true',
@@ -223,8 +258,13 @@ if __name__ == '__main__':
 
     log('Reading sequences')
     seqs, words, word_codes, coded_seqs = load_sequences(args.f, args.s)
+
     log('Generating initial HMM')
-    init_hmm = random_hmm(args.n, len(words))
+    if args.i=='m':
+        init_hmm=make_modded_cooccurrence(args.n,len(word_codes), seqs)
+    else:
+        init_hmm = random_hmm(args.n, len(words))
+
     log('Running EM')
     final_hmm = maximize_expectation(init_hmm, coded_seqs, print_nll = True)
 
