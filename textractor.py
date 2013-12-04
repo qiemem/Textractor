@@ -115,9 +115,16 @@ class HMM(object):
         return time_state_probs
 
     def state_probs(self, normed_forward_probs, normed_backward_probs):
+        """
+        Calculates the probability of reaching each state at each timestep.
+        """
         return normed_forward_probs * normed_backward_probs
 
     def expected_trans(self, sequence, normed_forward_probs, normed_backward_probs, normalizers):
+        """
+        Calculates the probability of transitioning from each state to each 
+        other state at each timestep.
+        """
         states = range(len(self.init_probs))
         result = np.zeros((len(sequence)-1, len(states), len(states)))
         for t, word in enum_range(sequence,0,-1,1):
@@ -129,6 +136,10 @@ class HMM(object):
         return result
 
     def improve(self, sequences):
+        """
+        Runs a single iteration of EM on the given sequences. The improved HMM
+        is returned; this one is unaffected.
+        """
         num_seqs = len(sequences)
         new_init_probs = np.zeros(self.init_probs.shape)
         trans_probs_num = np.zeros(self.trans_probs.shape)
@@ -154,7 +165,11 @@ class HMM(object):
                 emit_probs_num[:,word] += state_probs[seq==word].sum(0)
             nll -= np.log(normalizers).sum()
 
-        trans_probs_denom += 1
+# trans_probs_denom can get zeros in it if a node becomes unreachable. That
+# creates NaNs everywhere. So, we smooth just a tiny amount.
+# Note that trans_probs_denom is the expected number of visits to each node.
+        trans_probs_denom += 1.0
+        trans_probs_num += 1.0 / len(trans_probs_denom)
         new_trans_probs = (trans_probs_num.transpose() / trans_probs_denom).transpose()
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
         return HMM(new_trans_probs, new_init_probs, new_emit_probs), nll
@@ -205,7 +220,6 @@ def load_sequences(fn, do_stem):
     return seqs, words, word_codes, coded_seqs
     
 
-# TODO: Run multiple HMMs in parallel, take best
 def log(string):
     sys.stderr.write(str(string))
     sys.stderr.write('\n')
@@ -224,12 +238,12 @@ if __name__ == '__main__':
     log('Reading sequences')
     seqs, words, word_codes, coded_seqs = load_sequences(args.f, args.s)
     log('Generating initial HMM')
-    init_hmm = random_hmm(args.n, len(words))
+    init_hmm = random_hmm(args.n, len(word_codes))
     log('Running EM')
     final_hmm = maximize_expectation(init_hmm, coded_seqs, print_nll = True)
 
     for w in words:
-        if not isStopWord(w):
-            i = word_codes[stem(w)]
+        if not args.s or not isStopWord(w):
+            i = word_codes[stem(w)] if args.s else word_codes[w]
             print(w + ' ' + ' '.join(str(x) for x in final_hmm.emit_probs[:, i]))
 
