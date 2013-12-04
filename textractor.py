@@ -13,11 +13,44 @@ def normalized(array):
 def distribution(size):
     return normalized(np.array([random.random() for i in xrange(size)]))
 
+def make_tuples(tuple_size, seqs):
+    for seq in seqs:
+
+        for i, w in enumerate(seq[:-(tuple_size - 1)]):
+
+            yield tuple(seq[i:i+tuple_size])
+
 def random_hmm(num_states, num_observables):
     states = range(num_states)
     trans_probs = np.array([distribution(num_states) for s in states])
     init_probs = distribution(num_states)
     emit_probs = np.array([distribution(num_observables) for s in states])
+    print emit_probs
+    return HMM(trans_probs, init_probs, emit_probs)
+
+def make_modded_cooccurrence(num_states,num_observables, sequences):
+    states = range(num_states)
+    trans_probs = np.array([distribution(num_states) for s in states])
+    init_probs = distribution(num_states)
+    emit_probs = np.zeros((len(states), num_observables))
+    #emit_probs = np.array([np.array([0 for i in range(num_observables)]) for s in states])
+    for w1, w2 in make_tuples(2, sequences):
+        emit_probs[hash(w1)%num_states, word_codes[w2]] += 1
+        emit_probs[hash(w2)%num_states, word_codes[w1]] += 1
+    """
+    for w in words:
+        if do_stem:
+            w = stem(w)
+        if not isStopWord(w):
+            i = word_codes[w]
+            row = hash(w)%num_states
+            emit_probs[row,i]+=1
+    """
+    for i in range(num_observables):
+        emit_probs[:,i]=normalized(emit_probs[:,i])
+    
+    print emit_probs
+    print 'you are here'
     return HMM(trans_probs, init_probs, emit_probs)
 
 def weighted_random(weights):
@@ -243,13 +276,19 @@ if __name__ == '__main__':
             help='Run HMM on stemmed words')
     parser.add_argument('-i', default=10000, type=int,
             help='Maximum number of iterations of EM to do')
+    parser.add_argument('--seed', default=False, action='store_false',
+            help='Emission probabilities are seeded with a modded co-occurrence matrix')
 
     args = parser.parse_args()
 
     log('Reading sequences')
     seqs, words, word_codes, coded_seqs = load_sequences(args.f, args.s)
+
     log('Generating initial HMM')
-    init_hmm = random_hmm(args.n, len(word_codes))
+    if args.seed:
+        init_hmm=make_modded_cooccurrence(args.n,len(word_codes), seqs)
+    else:
+        init_hmm = random_hmm(args.n, len(words))
     log('Running EM')
     final_hmm = maximize_expectation(init_hmm, coded_seqs, max_iters = args.i, print_nll = True)
 

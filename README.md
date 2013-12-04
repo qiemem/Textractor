@@ -14,7 +14,7 @@ appears next to a word who's hash value mod 100 is j.
 Usage
 ---
 
-    usage: textractor.py [-h] [-n N] [-f filename]
+    usage: textractor.py [-h] [-n N] [-f filename] [-s] [-i I] [--seed]
 
     Given a bunch of sentences, outputs feature vectors of the words
 
@@ -22,9 +22,13 @@ Usage
       -h, --help   show this help message and exit
       -n N         Length of feature vectors (default is 100)
       -f filename  File containing sentences to process (defaults to stdin)
+      -s           Run HMM on stemmed words
+      -i I         Maximum number of iterations of EM to do
+      --seed       Emission probabilities are seeded with a modded co-occurrence
+                   matrix
 
 For example:
 
-    python textractor.py -n 20 -f dataset.txt > output.txt
+    python textractor.py -n 20 -i r -f dataset.txt > output.txt
 
 Note that it runs much faster with pypy.
