@@ -215,7 +215,9 @@ def load_sequences(filename, do_stem = False):
     Returns (seqs, words, word_codes, coded_seqs) .`words` is never stemmed.
     All others use stemming if do_stem is true.
     """
-    seqs = [seq.split() for seq in fileinput.input(filename)]
+    seqs = (seq.split() for seq in fileinput.input(filename))
+    seqs = [seq for seq in seqs if len(seq)>0]
+
     words = list({w for seq in seqs for w in seq})
     if do_stem:
         seqs = [[stem(w) for w in seq if not isStopWord(w)] for seq in seqs]
