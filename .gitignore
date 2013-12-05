@@ -7,6 +7,7 @@
 *.swp
 
 # Packages
+env
 *.egg
 *.egg-info
 dist
@@ -37,3 +38,9 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+*.java
+*.class
+devset
+*.txt
+*.zip
