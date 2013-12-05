@@ -180,8 +180,8 @@ class HMM(object):
             trans_probs_denom += state_probs[:-1].sum(0)
 
             emit_probs_denom += state_probs.sum(0)
-            for word in set(seq):
-                emit_probs_num[:,word] += state_probs[seq==word].sum(0)
+            for t, word in enumerate(seq):
+                emit_probs_num[:,word] += state_probs[t]
             nll -= np.log(normalizers).sum()
 
 # trans_probs_denom can get zeros in it if a node becomes unreachable. That
