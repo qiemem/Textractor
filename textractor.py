@@ -236,14 +236,14 @@ def load_sequences(filename, do_stem = False):
     Returns (seqs, words, word_codes, coded_seqs) .`words` is never stemmed.
     All others use stemming if do_stem is true.
     """
-    seqs = (seq.split() for seq in fileinput.input(filename))
-    seqs = [seq for seq in seqs if len(seq)>0]
-
-    words = list({w for seq in seqs for w in seq})
+    split_lines = [seq.split() for seq in fileinput.input(filename)]
+    words = list({w for seq in split_lines for w in seq})
     if do_stem:
-        seqs = [[stem(w) for w in seq if not isStopWord(w)] for seq in seqs]
+        stemmed = ([stem(w) for w in seq if not isStopWord(w)] for seq in split_lines)
+        seqs = [seq for seq in stemmed if len(seq) > 0]
         stemmed_words = list({w for seq in seqs for w in seq})
     else:
+        seqs = list(split_lines)
         stemmed_words = words
     word_codes = {w: i for i,w in enumerate(stemmed_words)}
     coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
@@ -255,7 +255,8 @@ def log(string):
     sys.stderr.write('\n')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Given a bunch of sentences, outputs feature vectors of the words')
+    parser = argparse.ArgumentParser(
+            description='Given a bunch of sentences, outputs feature vectors of the words')
     parser.add_argument('-n', default=100, type=int, 
             help='Length of feature vectors (default is 100)')
     parser.add_argument('-f', default='-', type=str, metavar='filename',
@@ -272,6 +273,7 @@ if __name__ == '__main__':
     log('Reading sequences')
     seqs, words, word_codes, coded_seqs = load_sequences(args.f, args.s)
 
+    log('{} words, {} sequences, {} observables'.format(len(words), len(coded_seqs), len(word_codes)))
     log('Generating initial HMM')
     if args.seed:
         emit_probs = make_modded_cooccurrence(args.n,len(word_codes), seqs)
