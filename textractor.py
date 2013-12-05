@@ -172,16 +172,20 @@ class HMM(object):
             forward, normalizers = self.forward_probs(seq, True)
             backward = self.backward_probs(seq, normalizers)
             state_probs = self.state_probs(forward, backward)
-            expected_trans = self.expected_trans(seq, forward, backward, normalizers)
 
             new_init_probs += state_probs[0]
-            
-            trans_probs_num += expected_trans.sum(0)
-            trans_probs_denom += state_probs[:-1].sum(0)
-
             emit_probs_denom += state_probs.sum(0)
             for t, word in enumerate(seq):
                 emit_probs_num[:,word] += state_probs[t]
+            
+# Besides just being reasonable to avoid training transition probabilities on 
+# sequences with only one element, pypy barfs on summing empty, 
+# multidimensional arrays.
+            if len(seq) > 1:
+                expected_trans = self.expected_trans(seq, forward, backward, normalizers)
+                trans_probs_num += expected_trans.sum(0)
+                trans_probs_denom += state_probs[:-1].sum(0)
+
             nll -= np.log(normalizers).sum()
 
 # trans_probs_denom can get zeros in it if a node becomes unreachable. That
