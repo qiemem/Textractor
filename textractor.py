@@ -31,12 +31,12 @@ def random_hmm(num_states, num_observables,
         emit_probs = np.array([distribution(num_observables) for s in states])
     return HMM(trans_probs, init_probs, emit_probs)
 
-def make_modded_cooccurrence(num_states,num_observables, sequences, smoothing = 1):
+def make_modded_cooccurrence(num_states, num_observables, coded_seqs, smoothing = 1):
     states = range(num_states)
     emit_probs = np.ones((len(states), num_observables)) * smoothing
-    for w1, w2 in make_tuples(2, sequences):
-        emit_probs[hash(w1)%num_states, word_codes[w2]] += 1
-        emit_probs[hash(w2)%num_states, word_codes[w1]] += 1
+    for w1, w2 in make_tuples(2, coded_seqs):
+        emit_probs[w1 % num_states, w2] += 1
+        emit_probs[w2 % num_states, w1] += 1
     for i in states:
         emit_probs[i]=normalized(emit_probs[i])
     return emit_probs
@@ -238,14 +238,14 @@ def load_sequences(filename, do_stem = False):
     words = list({w for seq in split_lines for w in seq})
     if do_stem:
         stemmed = ([stem(w) for w in seq if not isStopWord(w)] for seq in split_lines)
-        seqs = [seq for seq in stemmed if len(seq) > 0]
-        stemmed_words = list({w for seq in seqs for w in seq})
+        seqs = (seq for seq in stemmed if len(seq) > 0)
+        stemmed_words = list({stem(w) for w in words if not isStopWord(w)})
     else:
-        seqs = list(split_lines)
+        seqs = split_lines
         stemmed_words = words
     word_codes = {w: i for i,w in enumerate(stemmed_words)}
     coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
-    return seqs, words, word_codes, coded_seqs
+    return words, word_codes, coded_seqs
     
 
 def log(string):
@@ -269,12 +269,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     log('Reading sequences')
-    seqs, words, word_codes, coded_seqs = load_sequences(args.f, args.s)
+    words, word_codes, coded_seqs = load_sequences(args.f, args.s)
 
     log('{} words, {} sequences, {} observables'.format(len(words), len(coded_seqs), len(word_codes)))
     log('Generating initial HMM')
     if args.seed:
-        emit_probs = make_modded_cooccurrence(args.n,len(word_codes), seqs)
+        emit_probs = make_modded_cooccurrence(args.n, len(word_codes), coded_seqs)
         init_hmm = random_hmm(args.n, len(words), emit_probs = emit_probs)
     else:
         init_hmm = random_hmm(args.n, len(words))
