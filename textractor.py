@@ -31,9 +31,9 @@ def random_hmm(num_states, num_observables,
         emit_probs = np.array([distribution(num_observables) for s in states])
     return HMM(trans_probs, init_probs, emit_probs)
 
-def make_modded_cooccurrence(num_states,num_observables, sequences):
+def make_modded_cooccurrence(num_states,num_observables, sequences, smoothing = 1):
     states = range(num_states)
-    emit_probs = np.zeros((len(states), num_observables))
+    emit_probs = np.ones((len(states), num_observables)) * smoothing
     for w1, w2 in make_tuples(2, sequences):
         emit_probs[hash(w1)%num_states, word_codes[w2]] += 1
         emit_probs[hash(w2)%num_states, word_codes[w1]] += 1
