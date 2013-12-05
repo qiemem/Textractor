@@ -147,13 +147,11 @@ class HMM(object):
         other state at each timestep.
         """
         states = range(len(self.init_probs))
-        result = np.zeros((len(sequence)-1, len(states), len(states)))
-        for t, word in enum_range(sequence,0,-1,1):
-            next_word = sequence[t+1]
-            result[t] = normed_forward_probs[t,:,np.newaxis] 
-            result[t] *= self.emit_probs[:,next_word] 
-            result[t] *= self.trans_probs 
-            result[t] *= normed_backward_probs[t+1] / normalizers[t+1]
+        result = np.ones((len(sequence)-1, len(states), len(states)))
+        result *= normed_forward_probs[:-1,:,np.newaxis] 
+        result *= self.emit_probs[:,sequence[1:]].T[:,np.newaxis]
+        result *= self.trans_probs
+        result *= (normed_backward_probs[1:] / normalizers[1:,np.newaxis])[:,np.newaxis]
         return result
 
     def improve(self, sequences):
