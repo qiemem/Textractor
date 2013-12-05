@@ -78,7 +78,7 @@ class HMM(object):
         land in that state.
         sequence - The sequence of observations over time. sequence[time] = obs
 
-        Returns a matrix alpha representing the forward probabilities such that
+        Returns an array alpha representing the forward probabilities such that
         alpha[t, s] = P(seq[0],..., seq[t], state[t] = s). If normalize is true, 
         then the values of the alpha[t] are normalized on 
         P(seq[t] | seq[0], ..., seq[t-1]) and those normalizing factors are 
@@ -120,7 +120,7 @@ class HMM(object):
         normalizers - If given, normalizes each value of the result matrix
             so normed_beta[t,s] = beta[t, s] / normalizers[t+1:].prod()
 
-        Returns a matrix beta representing the backward probabilities such that
+        Returns an array beta representing the backward probabilities such that
         beta[t, s] = P(seq[t+1],..., seq[T] | state[t] = s).
         """
         n = len(self.trans_probs)
@@ -138,6 +138,7 @@ class HMM(object):
     def state_probs(self, normed_forward_probs, normed_backward_probs):
         """
         Calculates the probability of reaching each state at each timestep.
+        Resulting array is gamma[timestep, state] = probabilities
         """
         return normed_forward_probs * normed_backward_probs
 
@@ -145,6 +146,8 @@ class HMM(object):
         """
         Calculates the probability of transitioning from each state to each 
         other state at each timestep.
+        Resulting array is xi[timestep, state, state] -> probabilities
+        xi is (timesteps - 1 X states X states)
         """
         states = range(len(self.init_probs))
         result = np.ones((len(sequence)-1, len(states), len(states)))
