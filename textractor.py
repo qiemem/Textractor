@@ -89,8 +89,8 @@ class HMM(object):
         n = len(self.init_probs)
         states = range(n)
 
-        time_state_probs = np.zeros((len(sequence), n))
-        time_state_probs[0] = self.init_probs * self.emit_probs[:, sequence[0]]
+        time_state_probs = self.emit_probs[:, sequence].T
+        time_state_probs[0] *= self.init_probs
         if normalize:
             normalizers = np.zeros(sequence.shape)
             normalizers[0] = time_state_probs[0].sum()
@@ -101,8 +101,8 @@ class HMM(object):
         # Use that instead of wikipedia. It has formulas for normalized numbers.
         # Math checks out.
 
-        for t, observed in enum_range(sequence, 1):
-            time_state_probs[t] = self.emit_probs[:, sequence[t]] * time_state_probs[t-1].dot(self.trans_probs)
+        for t in xrange(1,len(sequence)):
+            time_state_probs[t] *= time_state_probs[t-1].dot(self.trans_probs)
             if normalize:
                 normalizers[t] = time_state_probs[t].sum()
                 time_state_probs[t] /= normalizers[t]
