@@ -1,4 +1,5 @@
 import fileinput
+import os
 import argparse
 import random
 from collections import defaultdict
@@ -157,6 +158,14 @@ class HMM(object):
         result *= (normed_backward_probs[1:] / normalizers[1:,np.newaxis])[:,np.newaxis]
         return result
 
+    def nll(self, sequences):
+        nll = 0
+        for seq in sequences:
+            forward, normalizers = self.forward_probs(seq, True)
+            nll -= np.log(normalizers).sum()
+        return nll
+
+
     def improve(self, sequences):
         """
         Runs a single iteration of EM on the given sequences. The improved HMM
@@ -202,19 +211,26 @@ class HMM(object):
         new_emit_probs = (emit_probs_num.transpose() / emit_probs_denom).transpose()
         return HMM(new_trans_probs, new_init_probs / len(sequences), new_emit_probs), nll
 
-def maximize_expectation(hmm, sequences, max_iters = 10000, nll_percent = 0.00001, print_nll = False):
-    last_l = np.inf
+def em(hmm, sequences):
+    while True:
+        hmm, nll = hmm.improve(sequences)
+        yield nll, hmm
+
+def maximize_expectation(hmm, sequences, max_iters = 10000, print_nll = False, out_func=None):
+    em_iter = em(hmm, sequences)
+    if out_func:
+        last_fn = out_func(hmm, 0)
     for i in xrange(max_iters):
-        #hmm, l = hmm.improve(random.sample(sequences, 10000))
-        hmm, l = hmm.improve(sequences)
+        nll, next_hmm = next(em_iter)
+        if out_func:
+            os.rename(last_fn, last_fn[:-3]+'_'+str(nll)+'.txt')
         if print_nll:
-            log(l)
-        if nll_percent > (1 - l / last_l) and l <= last_l:
-            return hmm
-        last_l = l
-        if np.isnan(l):
-            log('NaNs detected!!!')
-            return hmm
+            log(nll)
+        hmm = next_hmm
+        if out_func:
+            last_fn = out_func(hmm, i+1)
+    if out_func:
+        os.rename(last_fn, last_fn[:-3]+'_'+str(hmm.nll(sequences))+'.txt')
     return hmm
 
 def enum_range(seq, start=0, stop=None, step=1):
@@ -245,19 +261,28 @@ def load_sequences(filename, do_stem = False):
     words = list({w for seq in split_lines for w in seq})
     if do_stem:
         stemmed = ([stem(w) for w in seq if not isStopWord(w)] for seq in split_lines)
-        seqs = (seq for seq in stemmed if len(seq) > 0)
         stemmed_words = list({stem(w) for w in words if not isStopWord(w)})
     else:
         seqs = split_lines
         stemmed_words = words
     word_codes = {w: i for i,w in enumerate(stemmed_words)}
-    coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs]
+    coded_seqs = [np.array([word_codes[w] for w in seq]) for seq in seqs if len(seq) > 0]
     return words, word_codes, coded_seqs
-    
 
 def log(string):
     sys.stderr.write(str(string))
     sys.stderr.write('\n')
+
+def output_results(prefix, states, stemmed, iterations, seed, words, word_codes, hmm, i):
+    filename ='{}_states-{}_stemmed-{}_iters-{}_seed-{}_{}.txt'.format(
+            prefix, states, stemmed, iterations, seed, i)
+    with open(filename , 'w') as out:
+        for w in words:
+            if not stemmed or not isStopWord(w):
+                i = word_codes[stem(w)] if stemmed else word_codes[w]
+                out.write(w + ' ' + ' '.join(str(x) for x in hmm.emit_probs[:, i]))
+                out.write('\n')
+    return filename
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -272,6 +297,8 @@ if __name__ == '__main__':
             help='Maximum number of iterations of EM to do')
     parser.add_argument('--seed', default=False, action='store_true',
             help='Emission probabilities are seeded with a modded co-occurrence matrix')
+    parser.add_argument('--out', default=None, type=str, metavar='file prefix',
+            help='Output intermittent data in files prefixed with this argument. By default, final results are printed to stdout.')
 
     args = parser.parse_args()
 
@@ -286,10 +313,12 @@ if __name__ == '__main__':
     else:
         init_hmm = random_hmm(args.n, len(words))
     log('Running EM')
-    final_hmm = maximize_expectation(init_hmm, coded_seqs, max_iters = args.i, print_nll = True)
-    log('Writing results')
-    for w in words:
-        if not args.s or not isStopWord(w):
-            i = word_codes[stem(w)] if args.s else word_codes[w]
-            print(w + ' ' + ' '.join(str(x) for x in final_hmm.emit_probs[:, i]))
+    out_func = lambda hmm, i : output_results(args.out, args.n, args.s, args.i, args.seed, words, word_codes, hmm, i) if args.out else None
+    final_hmm = maximize_expectation(init_hmm, coded_seqs, max_iters = args.i, print_nll = True, out_func = out_func)
+    if not args.out:
+        log('Writing results')
+        for w in words:
+            if not args.s or not isStopWord(w):
+                i = word_codes[stem(w)] if args.s else word_codes[w]
+                print(w + ' ' + ' '.join(str(x) for x in final_hmm.emit_probs[:, i]))
 
