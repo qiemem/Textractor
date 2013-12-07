@@ -260,7 +260,7 @@ def load_sequences(filename, do_stem = False):
     split_lines = [seq.split() for seq in fileinput.input(filename)]
     words = list({w for seq in split_lines for w in seq})
     if do_stem:
-        stemmed = ([stem(w) for w in seq if not isStopWord(w)] for seq in split_lines)
+        seqs = ([stem(w) for w in seq if not isStopWord(w)] for seq in split_lines)
         stemmed_words = list({stem(w) for w in words if not isStopWord(w)})
     else:
         seqs = split_lines
